@@ -1,8 +1,6 @@
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collector;
+import java.util.stream.Stream;
 
 import static java.lang.Math.abs;
 
@@ -12,6 +10,7 @@ import static java.lang.Math.abs;
 public class main{
     public static void main(String[] args) {
         String texts = new String("aaaaaaaaaaaaaaabbbbbbbccccccdddddeeee");//начальная строчка
+        System.out.println(texts);
         char[] text = texts.toCharArray();
         Map<String,Double> symbolList = new HashMap<String,Double>(); //асоц. массив для
 
@@ -25,28 +24,27 @@ public class main{
         System.out.println("List of the letters:");
         listHandler.printMap(symbolList);
 
-        listHandler.fillCipherList(symbolList);
-
         //Построение дерева
-
         //деление на две части
-
-
         //начальное заполнение массива буква-шифр
-        listHandler.fillCipherList(symbolList);
+  //      listHandler.fillCipherList(symbolList);
         //передаем на обработку
-        listHandler.recursiveDiv(1,symbolList.size(),symbolList);
+  //      listHandler.recursiveDiv(1,symbolList.size(),symbolList);
 
-        for (Map.Entry<String,String> entry : listHandler.cipherList.entrySet()) {
-            System.out.printf("\nkey = %s, value = %s", entry.getKey(), entry.getValue());
-        }
+        //список буква-код
+        Map<String,String> huffList = listHandler.huffmanCode(symbolList);
+        //печать кодов шифровки
+        System.out.println("Code table:");
+        listHandler.printMap_string(huffList);
 
         String result = new String();
-        result=listHandler.codeText(text);
+        //result=listHandler.codeText(text);
+        result=listHandler.codeText(text,huffList);
         System.out.println("\n"+result);
     }
 }
 //сравнение
+
 class ValueComparator implements Comparator {
 
     Map base;
@@ -65,18 +63,79 @@ class ValueComparator implements Comparator {
         }
     }
 }
+
+
+
 class listHandler{
+
 
     //буква-шифр
     public  static Map<String,String> cipherList = new HashMap<String,String>();
 
+
+    public static Map<String,String> huffmanCode(Map<String,Double> symbolList){
+        //массив для кодов
+        Map<String,String> huffList = new HashMap<String,String>();
+        huffList = fillCipherList(symbolList,huffList);
+        //рабочий массив
+        Map<String,Double> workList = new TreeMap<String,Double>();
+        workList=symbolList;
+        //пока не вышли на верхушку дерева
+        while(workList.size()>1){
+            //сортировка рабочего списка
+            workList=listHandler.mapSorter(workList);
+            String k1="", k2="";
+            Double v1=0.0, v2=0.0;
+            int ind=1;
+            //поиск двух наименьших элементов
+            for (Map.Entry<String,Double> entry : workList.entrySet()){
+                if(ind==workList.size()-1){   //второй элемент
+                    for (Map.Entry<String,String> ent : huffList.entrySet()){//проход по списку кодов
+                        if(entry.getKey().contains(ent.getKey())){  //если нашли код из табл равен тому что в найденом элементе
+                            ent.setValue("0"+ent.getValue());  //дописываем в начало 0
+                            k1=entry.getKey();
+                            v1=entry.getValue();
+                        }
+                    }
+                }else if(ind==workList.size()){   //первый элемент
+                    for (Map.Entry<String,String> ent : huffList.entrySet()){//проход по списку кодов
+                        if(entry.getKey().contains(ent.getKey())){  //если нашли код из табл равен тому что в найденом элементе
+                            ent.setValue("1"+ent.getValue());  //дописываем в начало 0
+                            k2=entry.getKey();
+                            v2=entry.getValue();
+                        }
+                    }
+                }
+                ind++;
+            }
+            //удаление элемента
+            workList.remove(k1);
+            workList.remove(k2);
+            //добавить новый элемент - родительский для удаленных
+
+            String put_key = new String();
+            put_key=k1.concat(k2);
+
+            Double put_v = v1+v2;
+            workList.put(put_key,put_v);
+        }
+        return huffList;
+    }
+/*
     //начальное заполнение списка шифров
     public static void fillCipherList(Map<String,Double> symbolList){
         for (Map.Entry<String,Double> entry : symbolList.entrySet()) {
             cipherList.put(entry.getKey(), "");
         }
     }
+*/
+    public static Map<String,String> fillCipherList(Map<String,Double> symbolList,Map<String,String> huffList ){
+        for (Map.Entry<String,Double> entry : symbolList.entrySet()) {
+            huffList.put(entry.getKey(), "");
+        }
 
+        return huffList;
+    }
     //массив символов в асоц. массив
     public static Map<String,Double> stringToMap(char[] text){
         Map<String,Double> symbolList = new HashMap<String,Double>();
@@ -96,16 +155,34 @@ class listHandler{
             System.out.printf("key = %s, value = %.0f\n", entry.getKey(), entry.getValue());
         }
     }
+    public static void printMap_string(Map<String,String> symbolList){
+        for (Map.Entry<String,String> entry : symbolList.entrySet()) {
+            System.out.printf("key = %s, value = %s\n", entry.getKey(), entry.getValue());
+        }
+    }
 
     //сортировка асоц. масс.
-    public static Map<String,Double> mapSorter(Map<String,Double> map){
+   /* public static Map<String,Double> mapSorter(Map<String,Double> map){
         ValueComparator bvc =  new ValueComparator(map);
         TreeMap<String,Double> sorted_map = new TreeMap(bvc);
         sorted_map.putAll(map);
 
         return sorted_map;
+    }*/
+
+    public static <K, V extends Comparable<? super V>> Map<K, V> mapSorter( Map<K, V> map )
+    {
+        Map<K, V> result = new LinkedHashMap<>();
+        Stream<Map.Entry<K, V>> st = map.entrySet().stream();
+
+        st.sorted( Map.Entry.comparingByValue(Comparator.reverseOrder()) ).forEachOrdered( e -> result.put(e.getKey(), e.getValue()) );
+
+        return result;
     }
 
+
+
+/*
     //деление
     public static int dividingList(Map<String,Double> map){
 
@@ -212,4 +289,21 @@ class listHandler{
 
         return res;
     }
+    */
+public static String codeText(char[] text, Map<String,String> huffCode){
+    String res = new String();
+    //перебор каждой буквы, которую нужно зашифровать
+    for(int i=0; i<text.length; i++){
+        //перебор массива буква-код
+        for (Map.Entry<String,String> entry : huffCode.entrySet()) {
+            if(Character.toString(text[i]).equals(entry.getKey())){
+                res+=entry.getValue();
+            }
+        }
+
+    }
+
+    return res;
+}
+
 }
